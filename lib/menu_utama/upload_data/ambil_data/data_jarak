@@ -1,0 +1,79 @@
+import 'dart:async';
+import 'package:csv/csv.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+class DataJarak extends StatefulWidget {
+  const DataJarak({super.key});
+
+  @override
+  State<DataJarak> createState() => _DataJarakState();
+}
+
+class _DataJarakState extends State<DataJarak> {
+  Future<List<List<dynamic>>> _loadCSV() async {
+    String csvData = await rootBundle.loadString("assets/csv/data.csv");
+    List<List<dynamic>> csvTable = CsvToListConverter().convert(csvData);
+    return csvTable;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Data"),
+      ),
+      body: FutureBuilder<List<List<dynamic>>>(
+        future: _loadCSV(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.done) {
+            if (snapshot.hasData) {
+              List<List<dynamic>> data = snapshot.data!;
+              return ListView.builder(
+                itemCount: data.length,
+                itemBuilder: (context, index) {
+                  return Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Card(
+                      elevation: 2,
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          child: Text((index + 1).toString()),
+                        ),
+                        title: Text(
+                          // data[index][2].toString(),
+                          "${data[index][2].toString()} m",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text("Tanggal: ${data[index][0].toString()}"),
+                            Text("Waktu: ${data[index][1].toString()}"),
+                            //Text("Jarak: ${data[index][2].toString()} m"),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              );
+            } else {
+              return Center(
+                child: Text("Data tidak ditemukan."),
+              );
+            }
+          } else if (snapshot.hasError) {
+            return Center(
+              child: Text("Error: ${snapshot.error}"),
+            );
+          } else {
+            return Center(
+              child: CircularProgressIndicator(),
+            );
+          }
+        },
+      ),
+    );
+  }
+}

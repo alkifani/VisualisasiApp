@@ -1,0 +1,322 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:ta_visualisasi/configure/constants.dart';
+import 'package:ta_visualisasi/pilih_plat/pilih_plat.dart';
+
+
+FirebaseAuth auth = FirebaseAuth.instance;
+final databaseRef = FirebaseDatabase.instance.reference().child("DataKendaraan");
+class AddDataPlat extends StatefulWidget {
+  const AddDataPlat({Key? key, required this.email}) : super(key: key);
+  final String email;
+  @override
+  _AddDataPlatState createState() => _AddDataPlatState();
+}
+
+class _AddDataPlatState extends State<AddDataPlat> {
+  // final databaseRef = FirebaseDatabase.instance.reference().child("DataKendaraan");
+  final TextEditingController jenisController = TextEditingController();
+  final TextEditingController noMesinController = TextEditingController();
+  final TextEditingController platController = TextEditingController();
+  String errorMessage = '';
+
+  @override
+  void initState() {
+    super.initState();
+    fetchDataFromFirebase();
+  }
+
+  void fetchDataFromFirebase() {
+    databaseRef.orderByChild('email').equalTo(widget.email).onValue.listen((event) {
+    // databaseRef.onValue.listen((event) {
+      final DataSnapshot? snapshot = event.snapshot;
+      if (snapshot != null && snapshot.value is Map<dynamic, dynamic>) {
+        final Map<dynamic, dynamic> values = snapshot.value as Map<dynamic, dynamic>;
+        print("Fetched data from Firebase: $values");
+        // Handle Firebase data here
+      }
+    }, onError: (error) {
+      print("Error fetching data from Firebase: $error");
+    });
+  }
+
+  void removeData(String key) {
+    databaseRef.child(key).remove().then((_) {
+      print("Data successfully removed.");
+    }).catchError((error) {
+      print("Error removing data: $error");
+    });
+  }
+
+  Future<void> _showConfirmationDialog() async {
+    return showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Konfirmasi'),
+          content: Text('Apakah Anda yakin ingin menambahkan data ini?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('Batal'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Menutup dialog
+                addData();
+                // Navigator.of(context).pop(); // Tutup dialog
+                // Navigator.of(context).pushReplacement(
+                //   MaterialPageRoute(
+                //     builder: (context) =>
+                //         DataPlat(email: widget.email,),
+                //   ),
+                // );
+              },
+              child: Text('Ya'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void addData() {
+    print('Adding data...');
+    final jenisKendaraan = jenisController.text.toUpperCase();
+    final noMesin = noMesinController.text.toUpperCase();
+    final plat = platController.text.toUpperCase();
+
+    if (jenisKendaraan.isNotEmpty && noMesin.isNotEmpty && plat.isNotEmpty) {
+      // Tidak ada kesalahan, data diisi dengan benar
+      setState(() {
+        errorMessage = '';
+      });
+
+      // Mengirim data ke Firebase
+      databaseRef.push().set({
+        'email': widget.email,
+        'JenisKendaraan': jenisKendaraan,
+        'NoMesin': noMesin,
+        'Plat': plat,
+      }).then((_) {
+        // Data berhasil terkirim, tampilkan pemberitahuan sukses
+        _showSuccessNotification();
+
+        // Tutup dialog konfirmasi
+        Navigator.of(context).pop();
+
+        // Navigasi kembali ke halaman sebelumnya
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => DataPlat(email: widget.email),
+          ),
+        );
+      }).catchError((error) {
+        print("Error sending data to Firebase: $error"); // Tambahkan ini
+        _showErrorNotification();
+        // // Tutup dialog konfirmasi
+        // Navigator.of(context).pop();
+      });
+    } else {
+      setState(() {
+        errorMessage = 'Semua data harus diisi.';
+      });
+      // // Tutup dialog konfirmasi
+      // Navigator.of(context).pop();
+    }
+  }
+
+  void _showSuccessNotification() {
+    // Tampilkan pemberitahuan bahwa data berhasil terkirim
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Data berhasil terkirim ke Firebase.'),
+        backgroundColor: Colors.grey,
+      ),
+    );
+  }
+
+  void _showErrorNotification() {
+    // Tampilkan pemberitahuan jika terjadi kesalahan
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Terjadi kesalahan saat mengirim data ke Firebase.'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        iconTheme: const IconThemeData(color: Colors.black),
+        backgroundColor: Color.fromRGBO(234, 186, 103, 1.0),
+        title: Text('Pengaturan Data Kendaraan',style: TextStyle(color: Colors.black),),
+      ),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              Text(
+                'Tambah Data Kendaraan',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              TextFormField(
+                controller: jenisController,
+                keyboardType: TextInputType.text,
+                decoration: InputDecoration(labelText: 'Jenis Kendaraan'),
+              ),
+              TextFormField(
+                keyboardType: TextInputType.text,
+                controller: noMesinController,
+                decoration: InputDecoration(labelText: 'No Mesin'),
+              ),
+              TextFormField(
+                keyboardType: TextInputType.text,
+                controller: platController,
+                decoration: InputDecoration(labelText: 'Plat'),
+              ),
+              SizedBox(height: 16.0),
+              if (errorMessage.isNotEmpty)
+                Text(
+                  errorMessage,
+                  style: TextStyle(color: Colors.red),
+                ),
+              ElevatedButton(
+                onPressed: () {
+                  _showConfirmationDialog();
+                },
+                // onPressed: (addData),
+                style: ButtonStyle(
+                  shape: MaterialStateProperty.all<RoundedRectangleBorder>(
+                    RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                  ),
+                  backgroundColor: MaterialStateProperty.all<Color>(
+                      button
+                    //Color.fromRGBO(69, 69, 69, 1.0)
+                  ),
+                ),
+                child: Text('Tambah Data', style: TextStyle(color: Colors.black),),
+              ),
+
+              SizedBox(height: 30.0),
+              Text(
+                'Hapus Data Kendaraan',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              StreamBuilder(
+                stream: databaseRef.onValue,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  }
+
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Text('Error: ${snapshot.error}'),
+                    );
+                  }
+
+                  final DataSnapshot? dataSnapshot = snapshot.data?.snapshot;
+                  final dynamic values = dataSnapshot?.value;
+
+                  if (values is Map<dynamic, dynamic>) {
+                    final dataKeys = values.keys.toList();
+
+                    if (dataKeys.isEmpty) {
+                      return Center(
+                        child: Text('Tidak ada data tersedia.'),
+                      );
+                    }
+
+                    return ListView.builder(
+                      itemCount: dataKeys.length,
+                      itemBuilder: (context, index) {
+                        final key = dataKeys[index];
+                        final data = values[key] as Map<dynamic, dynamic>;
+
+                        return ListTile(
+                          title: Text(data['Plat'] ?? ''),
+                          subtitle: Text(data['JenisKendaraan'] ?? ''),
+                          trailing: IconButton(
+                            icon: Icon(Icons.delete),
+                            onPressed: () {
+                              removeData(key);
+                            },
+                          ),
+                        );
+                      },
+                    );
+                  }
+
+                  return Center(
+                    child: Text('Data tidak valid.'),
+                  );
+                },
+              ),
+              // StreamBuilder(
+              //   // stream: databaseRef.orderByChild('email').equalTo(widget.email).onValue,
+              //   stream: databaseRef.onValue,
+              //   builder: (context, snapshot) {
+              //     if (snapshot.hasData && snapshot.data != null) {
+              //       final DataSnapshot? dataSnapshot = snapshot.data?.snapshot;
+              //       final dynamic values = dataSnapshot?.value;
+              //
+              //       if (values is Map<dynamic, dynamic>) {
+              //         final dataKeys = values.keys.toList();
+              //
+              //         if (dataKeys.isEmpty) {
+              //           // Tampilkan pesan jika tidak ada data
+              //           return Center(
+              //             child: Text('Tidak ada data tersedia.'),
+              //           );
+              //         }
+              //
+              //         return ListView.builder(
+              //           itemCount: dataKeys.length,
+              //           itemBuilder: (context, index) {
+              //             final key = dataKeys[index];
+              //             final data = values[key] as Map<dynamic, dynamic>;
+              //
+              //             return ListTile(
+              //               title: Text(data['Plat'] ?? ''),
+              //               subtitle: Text(data['JenisKendaraan'] ?? ''),
+              //               trailing: IconButton(
+              //                 icon: Icon(Icons.delete),
+              //                 onPressed: () {
+              //                   removeData(key);
+              //                 },
+              //               ),
+              //             );
+              //           },
+              //         );
+              //       }
+              //     }
+              //
+              //     return Center(
+              //       child: CircularProgressIndicator(),
+              //     );
+              //   },
+              // ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

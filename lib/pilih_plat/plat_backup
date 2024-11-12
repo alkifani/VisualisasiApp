@@ -1,0 +1,305 @@
+import 'package:cosense/autentikasi/penambahan_plat.dart';
+import 'package:cosense/constants.dart';
+import 'package:cosense/menu_utama/home_screen.dart';
+import 'package:cosense/my_flutter_app_icons.dart';
+import 'package:dropdown_button2/dropdown_button2.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+
+class DataPlat extends StatefulWidget {
+  const DataPlat({Key? key});
+
+  @override
+  State<DataPlat> createState() => _DataPlatState();
+}
+
+class _DataPlatState extends State<DataPlat> {
+  final databaseRef = FirebaseDatabase.instance.reference().child("DataKendaraan");
+
+  List<String> kendaraanPlat = [];
+  Map<String, dynamic> selectedData = {}; // Menyimpan data kendaraan yang dipilih
+
+  String? selectedValue;
+  final TextEditingController textEditingController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    fetchDataFromFirebase();
+  }
+
+  void fetchDataFromFirebase() {
+    databaseRef.onValue.listen((event) {
+      final DataSnapshot snapshot = event.snapshot;
+      if (snapshot.value != null && snapshot.value is Map<dynamic, dynamic>) {
+        final Map<dynamic, dynamic> values = snapshot.value as Map<dynamic, dynamic>;
+        kendaraanPlat.clear(); // Membersihkan daftar sebelum menambahkan data yang baru
+        values.forEach((key, value) {
+          final plat = value["Plat"] as String?;
+          if (plat != null) {
+            kendaraanPlat.add(plat);
+          }
+        });
+        setState(() {});
+      }
+    }, onError: (error) {
+      print("Error fetching data from Firebase: $error");
+    });
+  }
+
+  @override
+  void dispose() {
+    textEditingController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Color.fromRGBO(234, 186, 103, 1.0),
+        //backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: IconThemeData(color: Colors.black87),
+        title: Text("Pilih Kendaraan", style: TextStyle(color: Colors.black87)),
+      ),
+      body: SingleChildScrollView(
+        child: Center(
+          child: Column(
+            //mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Column(
+                children: <Widget>[
+                  SizedBox(height: 30,),
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: ElevatedButton(
+                      onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => AddDataPlat(),
+                            ),
+                          );
+                      },
+                      style: ButtonStyle(
+                        shape: MaterialStateProperty.all<RoundedRectangleBorder>(
+                          RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                        ),
+                        backgroundColor: MaterialStateProperty.all<Color>(
+                            button
+                          //Color.fromRGBO(69, 69, 69, 1.0)
+                        ),
+                      ),
+                      child:
+                      Text('Data Kendaraan', style: TextStyle(color: Colors.black),),
+                    ),
+                  ),
+                  const SizedBox(
+                    height: 60.0,
+                  ),
+                  Text(
+                    "CO-SENSE",
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 36,
+                      color: Colors.black87,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(
+                    height: 13.0,
+                  ),
+                  const Text(
+                    "Selamat datang di Aplikasi Co-Sense",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 20,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(
+                    height: 15.0,
+                  ),
+                  const Text(
+                    "Kami Akan Merekontruksi Hasil Kecelakaan Anda!",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(
+                    height: 90,
+                  ),
+                  Container(
+                    width: 300,
+                    height: 165,
+                    decoration: const BoxDecoration(
+                      image: DecorationImage(
+                        image: AssetImage('assets/images/logo.png'),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(
+                height: 90,
+              ),
+              Text('Silahkan Pilih Plat Kendaraan Anda!', style: TextStyle(fontWeight: FontWeight.bold,color: Colors.black),),
+              DropdownButtonHideUnderline(
+                child: DropdownButton2<String>(
+                  isExpanded: true,
+                  hint: Text(
+                    'Silahkan Pilih Plat',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(context).hintColor,
+                    ),
+                  ),
+                  items: kendaraanPlat
+                      .map((item) => DropdownMenuItem<String>(
+                    value: item,
+                    child: Text(
+                      item,
+                      style: const TextStyle(
+                        fontSize: 14,
+                      ),
+                    ),
+                  ))
+                      .toList(),
+                  value: selectedValue,
+                  onChanged: (value) {
+                    setState(() {
+                      selectedValue = value;
+                      // Saat item dipilih, data akan diperbarui secara real-time.
+                      selectedData = {}; // Kosongkan data terlebih dahulu
+                      databaseRef
+                          .orderByChild("Plat")
+                          .equalTo(selectedValue)
+                          .onValue
+                          .listen((event) {
+                        final DataSnapshot snapshot = event.snapshot;
+                        final dynamic snapshotValue = snapshot.value;
+                        if (snapshotValue != null && snapshotValue is Map<dynamic, dynamic>) {
+                          selectedData = Map<String, dynamic>.from(snapshotValue);
+                          print(selectedValue);
+                          print('select data $selectedData');
+                        } else {
+                          // Tangani kesalahan jika tipe data tidak sesuai
+                          print("Invalid data received from Firebase.");
+                        }
+                        setState(() {});
+                      });
+                    });
+                  },
+                  buttonStyleData: const ButtonStyleData(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    height: 40,
+                    width: 200,
+                  ),
+                  dropdownStyleData: const DropdownStyleData(
+                    maxHeight: 200,
+                  ),
+                  menuItemStyleData: const MenuItemStyleData(
+                    height: 40,
+                  ),
+                  dropdownSearchData: DropdownSearchData(
+                    searchController: textEditingController,
+                    searchInnerWidgetHeight: 50,
+                    searchInnerWidget: Container(
+                      height: 50,
+                      padding: const EdgeInsets.only(
+                        top: 8,
+                        bottom: 4,
+                        right: 8,
+                        left: 8,
+                      ),
+                      child: TextFormField(
+                        expands: true,
+                        maxLines: null,
+                        controller: textEditingController,
+                        decoration: InputDecoration(
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          hintText: 'Search for an item...',
+                          hintStyle: const TextStyle(fontSize: 12),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  //This to clear the search value when you close the menu
+                  onMenuStateChange: (isOpen) {
+                    if (!isOpen) {
+                      textEditingController.clear();
+                    }
+                  },
+                ),
+              ),
+              // Menampilkan data kendaraan yang dipilih di sini
+              // Menampilkan data kendaraan yang dipilih di sini
+              selectedData.isNotEmpty
+                  ? Column(
+                children: selectedData.entries.map((entry) {
+                  final key = entry.key;
+                  final data = entry.value;
+                  return Card(
+                    elevation: 2,
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            "Jenis Kendaraan: ${data['JenisKendaraan']}",
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          Text("No Mesin: ${data['NoMesin']}"),
+                          Text("Plat: ${data['Plat']}"),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              )
+                  : Container(),
+              ElevatedButton(
+                onPressed: () {
+                  if (selectedValue != null) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => HomeScreen(email: selectedValue!),
+                      ),
+                    );
+                  }
+                },
+                style: ButtonStyle(
+                  shape: MaterialStateProperty.all<RoundedRectangleBorder>(
+                    RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                  ),
+                  backgroundColor: MaterialStateProperty.all<Color>(
+                    button
+                      //Color.fromRGBO(69, 69, 69, 1.0)
+                  ),
+                ),
+                child: Text('Setuju', style: TextStyle(color: Colors.black),),
+              ),
+
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+

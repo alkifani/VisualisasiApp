@@ -1,0 +1,5 @@
+Start Datetime,Datetime Pelanggaran,Jenis Pelanggaran,Mieleage,Travel hours,Arrived Datetime
+0,2023-06-29(17:50:49),Tidak jaga jarak aman,0 KM,00:00:05,0
+0,2023-06-29(17:55:00),Tidak jaga jarak aman,0 KM,00:00:15,0
+0,2023-06-29(18:60:00),Kecepatan Tinggi,0 KM,00:02:15,0
+2023-06-29 17:50:48,2023-06-29(20:60:00),Berkendara Larut Malam,40 KM,00:04:15,2023-06-29 17:50:48

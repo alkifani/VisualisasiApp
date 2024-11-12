@@ -1,0 +1,305 @@
+// code pada file ambil_data.dart
+
+import 'dart:async';
+import 'package:cosense/my_flutter_app_icons.dart';
+import 'package:cosense/upload_data/ambil_data/data_jarak.dart';
+import 'package:cosense/upload_data/berhasil_upload.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+class AmbilData extends StatefulWidget {
+  static String routeName = "/ambil_data";
+  final String email;
+
+  const AmbilData({Key? key, required this.email}) : super(key: key);
+
+  @override
+  State<AmbilData> createState() => _AmbilDataState();
+}
+
+class _AmbilDataState extends State<AmbilData> {
+  bool isLoadingUpload = false;
+  List<List<dynamic>> csvData = [];
+
+  // Fungsi untuk memuat data dari CsvDataModel
+  Future<List<List<dynamic>>> _loadCSV() async {
+    // Access the CsvDataModel to get the csvTable
+    return Provider.of<CsvDataModel>(context).csvTable;
+  }
+
+  // Fungsi untuk upload data ke Firebase
+  Future<void> _uploadDataToFirebase(List<List<dynamic>> data) async {
+    await DataJarak.of(context)?.uploadDataToDatabase(data);
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => BerhasilUpload(email: widget.email)),
+          (Route<dynamic> route) => false,
+    );
+  }
+
+  Widget _buildLoadingHalaman() {
+    return Center(
+      child: SizedBox(
+        height: 80,
+        width: 80,
+        child: CircularProgressIndicator(
+          color: Colors.black87,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingUpload() {
+    return Center(
+      child: SizedBox(
+        height: 35,
+        width: 35,
+        child: CircularProgressIndicator(
+          color: Colors.black87,
+        ),
+      ),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCSV().then((data) {
+      csvData = data;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        title: Center(
+          child: Text("Upload Data", style: TextStyle(color: Colors.black87)),
+        ),
+        automaticallyImplyLeading: false,
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              SizedBox(height: 5),
+              ListTile(
+                leading: Icon(
+                  MyFlutterApp.videocam,
+                  size: 50,
+                  color: Colors.black87,
+                ),
+                title: Text("Video Recording", style: TextStyle(fontSize: 20)),
+                trailing: Text("Selesai", style: TextStyle(fontSize: 15, color: Colors.green)),
+              ),
+              SizedBox(height: 10),
+              ListTile(
+                leading: Icon(
+                  MyFlutterApp.maps,
+                  size: 50,
+                  color: Colors.black87,
+                ),
+                title: Text("GPS History", style: TextStyle(fontSize: 20)),
+                trailing: Text("Selesai", style: TextStyle(fontSize: 15, color: Colors.green)),
+              ),
+              SizedBox(height: 10),
+              ListTile(
+                leading: Icon(
+                  MyFlutterApp.gyroscope,
+                  size: 50,
+                  color: Colors.black87,
+                ),
+                title: Text("Tilt history", style: TextStyle(fontSize: 20)),
+                trailing: Text("Selesai", style: TextStyle(fontSize: 15, color: Colors.green)),
+              ),
+              SizedBox(height: 10),
+              ListTile(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => DataJarak()),
+                  );
+                },
+                leading: Icon(
+                  MyFlutterApp.distance,
+                  size: 50,
+                  color: Colors.black87,
+                ),
+                title: Text("Distance history", style: TextStyle(fontSize: 20)),
+                trailing: Text("Selesai", style: TextStyle(fontSize: 15, color: Colors.green)),
+              ),
+              SizedBox(height: 35),
+              isLoadingUpload
+                  ? _buildLoadingUpload()
+                  : SizedBox(
+                height: 55,
+                width: MediaQuery.of(context).size.width / 2.25,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    setState(() {
+                      isLoadingUpload = true;
+                    });
+
+                    await _uploadDataToFirebase(csvData);
+
+                    setState(() {
+                      isLoadingUpload = false;
+                    });
+                  },
+                  style: ButtonStyle(
+                    shape: MaterialStateProperty.all<RoundedRectangleBorder>(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                    ),
+                    backgroundColor: MaterialStateProperty.all<Color>(
+                      Color.fromRGBO(69, 69, 69, 1.0),
+                    ),
+                  ),
+                  child: const Text('UPLOAD', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+//file pada data_jarak.dart
+import 'dart:async';
+import 'package:csv/csv.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'dart:io';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:provider/provider.dart';
+
+// Create a model class to store CSV data
+class CsvDataModel with ChangeNotifier {
+  List<List<dynamic>> csvTable = [];
+}
+
+class DataJarak extends StatefulWidget {
+  @override
+  _DataJarakState createState() => _DataJarakState();
+
+  // Add a static method to return the instance of _DataJarakState
+  static _DataJarakState? of(BuildContext context) {
+    return context.findAncestorStateOfType<_DataJarakState>();
+  }
+}
+
+class _DataJarakState extends State<DataJarak> {
+  List<List<dynamic>> _csvTable = [];
+
+  // Method to load CSV data
+  Future<List<List<dynamic>>> loadCSV() async {
+    var status = await Permission.storage.request();
+    if (status.isGranted) {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+      );
+
+      if (result != null) {
+        File file = File(result.files.single.path!);
+        String csvData = await file.readAsString();
+        _csvTable = CsvToListConverter().convert(csvData);
+
+        // Access the CsvDataModel and update the csvTable
+        Provider.of<CsvDataModel>(context, listen: false).csvTable = _csvTable;
+
+        setState(() {});
+      }
+    } else {
+      setState(() {
+        _csvTable = [];
+      });
+    }
+    return _csvTable;
+  }
+
+  // Method to upload data to Firebase
+  Future<void> uploadDataToDatabase(List<List<dynamic>> data) async {
+    final databaseRef = FirebaseDatabase.instance.reference();
+
+    for (int i = 0; i < data.length; i++) {
+      List<dynamic> rowData = data[i];
+      String date = rowData[0].toString();
+      String time = rowData[1].toString();
+      double distance = double.tryParse(rowData[2].toString()) ?? 0.0;
+
+      String fullDateTime = '$date, $time';
+
+      try {
+        await databaseRef.child('DataJarak').push().set({
+          'distance': distance,
+          'ultra_datetime': fullDateTime,
+        });
+        print('$distance, $fullDateTime');
+        print("Data pada baris $i berhasil diupload ke database.");
+      } catch (error) {
+        print("Gagal mengupload data pada baris $i: $error");
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Use Provider.of to access the CsvDataModel
+    _csvTable = Provider.of<CsvDataModel>(context).csvTable;
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: Text("Data", style: TextStyle(color: Colors.black87)),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.folder_open, color: Colors.black87,),
+            onPressed: () => loadCSV(),
+          ),
+        ],
+      ),
+      body: _csvTable.isNotEmpty
+          ? ListView.builder(
+        itemCount: _csvTable.length,
+        itemBuilder: (context, index) {
+          if (_csvTable[index].length >= 2) {
+            return Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Card(
+                elevation: 2,
+                child: ListTile(
+                  leading: CircleAvatar(
+                    child: Text((index + 1).toString()),
+                  ),
+                  title: Text(
+                    "${_csvTable[index][1].toString()} cm",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("DateTime: ${_csvTable[index][0].toString()}"),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          } else {
+            return Container();
+          }
+        },
+      )
+          : Center(
+        child: Text("Data tidak ditemukan."),
+      ),
+    );
+  }
+}
