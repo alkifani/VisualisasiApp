@@ -5,7 +5,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter/cupertino.dart';
 
-const String googleApiKey = 'AIzaSyCnsM79Dr9OZ-m6xG71dBvyFfzQfSuUuBE';
+const String googleApiKey = 'your_api';
 
 class MapsApp extends StatefulWidget {
   final String email;
